@@ -37,6 +37,7 @@ class Report:
 
         # Perform some message preprocessing here:
         user_message = str.lower(str(message.content))    # Parse lowered version of the message 
+        reply = ""
 
         if user_message == self.CANCEL_KEYWORD:
             self.state = State.REPORT_COMPLETE
@@ -107,7 +108,7 @@ class Report:
 
             # Regex to extract numbers in message content
             temp = re.findall(r'\d+', message.content)
-            option = str(list(map(int, temp)))
+            option = list(map(int, temp))[0]
             report_type = ""
 
             # Extract report type
@@ -136,9 +137,10 @@ class Report:
         elif self.state == State.FLOW_IDENTIFIED:
             report_type = self.report['type']
             params = self.report['params']
+            is_complete = False
 
             if report_type == 'Fraud':
-                reply = self.fraud_flow(params)
+                reply = await self.fraud_flow(user_message, params)                
             elif report_type == 'Solicitation':
                 pass
             elif report_type == 'Impersonation':
@@ -147,6 +149,15 @@ class Report:
                 pass
             else:
                 pass
+            
+            if params['completed']:
+                self.state = State.REPORT_COMPLETE
+
+
+        elif self.state == State.REPORT_COMPLETE:
+            # Notify moderation team of report, send to mod chat.
+            # TODO
+            print("TODO")
 
         return [reply]
 
@@ -155,10 +166,143 @@ class Report:
     
     ### Create each flow as their own methods
 
-    def fraud_flow(self, params : dict):
+    async def fraud_flow(self, user_message : str, params : dict):
         """
         This function handles the Fraud flow specifically, for better code visibility in the main handler function.
         """
-        action, has_leaked_info, has_shared_logs, req_to_block = params.values()
-        return ""
+        action = params['action']
+        has_leaked_info = params['has_leaked_info']
+        has_shared_logs = params['has_shared_logs']
+        req_to_block = params['req_to_block']
+        params['completed'] = False
+        is_complete = params['completed']
+
+        reply = ""
+
+        if action is None:
+            reply = "Please indicate what method of fraud is perpetrated in the reported message (if multiple apply, please indicate all relevant numbers with commas as: X,Y,Z):\n\n"
+            reply += "**1.) Sending suspicious and/or malicious off-site URLs**\n"
+            reply += "    - This mostly pertains to fake URLs such as co1nbas3.com.xyz (Fake Coinbase) and secure.chase.com.xyz (Fake Chase)\n\n"
+            reply += "**2.) Suggesting a cryptocurrency-type scheme**\n"
+            reply += "    - This includes pump-and-dump schemes, sending crypto to unknown wallets, and links to fake cryptocurrency exchanges.\n\n"
+            reply += "**3.) Asking for highly confidentrial personal information**\n"
+            reply += "    - Some notable examples are your SSN, credit card numbers, and home addresses\n"
+
+            # Update action state to empty string, while waiting for response
+            params['action'] = ""
+        
+        elif has_leaked_info is None:
+
+            # Regex to extract numbers in message content and update params
+            temp = re.findall(r'\d+', user_message)
+            options = list(map(int, temp))
+            for option in options:
+                text = ""
+                if option == 1:
+                    text = "Fraud: URL,\n"
+                elif option == 2:
+                    text = "Fraud: Crypto,\n"
+                elif option == 3:
+                    text = "Fraud: Personal Information,\n"
+                else:
+                    continue
+
+                params["action"] += text
+
+            reply = "Please indicate whether or not the reported fraud has occurred already.\n"
+            reply += "- If you have already fallen victim to the reported fraud, our moderation team can connect you to resources to protect your identity and recover assets.\n"
+            reply += "Please reply with `YES` or `NO` below:"
+            
+            # Update parameter to non-None type to continue
+            params["has_leaked_info"] = ""
+
+        elif has_shared_logs is None:
+            
+            # Update has_leaked_info param based on user_message
+            if user_message == "yes":
+                params["has_leaked_info"] = True
+            elif user_message == "no":
+                params["has_leaked_info"] = False
+            else:
+                return "Please reply with `YES` or `NO` below:"
+
+            reply = "Please indicate whether or not you would like to include your chat history in this report.\n"
+            reply += "Please reply with `YES` or `NO` below:"
+
+            # Update parameter to non-None type to continue
+            params["has_shared_logs"] = ""
+
+        elif req_to_block is None:
+            
+            # Update has_shared_logs param based on user_message
+            if user_message == "yes":
+                params["has_shared_logs"] = True
+            elif user_message == "no":
+                params["has_shared_logs"] = False
+            else:
+                return "Please reply with `YES` or `NO` below:"
+            
+            # Initialize an array of DiscordMessages in params
+            params['logs'] = []
+
+            reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
+            reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
+            reply += "When you are done, please enter `Complete` to indicate so."
+
+            # Update parameter to non-None type to continue
+            params['req_to_block'] = ""
+
+        elif params['logs'] is not None and user_message != 'complete' and req_to_block == "":
+
+            # Parse out the three ID strings from the message link
+            m = re.search('/(\d+)/(\d+)/(\d+)', user_message)
+            if not m:
+                return "I'm sorry, I couldn't read that link. Please try again or say `cancel` to cancel."
+            guild = self.client.get_guild(int(m.group(1)))
+            if not guild:
+                return "I cannot accept reports of messages from guilds that I'm not in. Please have the guild owner add me to the guild and try again."
+            channel = guild.get_channel(int(m.group(2)))
+            if not channel:
+                return "It seems this channel was deleted or never existed. Please try again or say `cancel` to cancel."
+
+            # Fetch actual message from channel
+            try:
+                new_message = await channel.fetch_message(int(m.group(3)))
+                params['logs'].append(new_message)
+            except discord.errors.NotFound:
+                return "It seems this message was deleted or never existed. Please try again or say `cancel` to cancel."
+
+            reply = "Received this message:```" + new_message.author.name + ": " + new_message.content + "```\n"
+            reply += "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
+            reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
+            reply += "When you are done, please enter `Complete` to indicate so."
+
+        elif req_to_block == "":
+            reply = "Thank you for filling out this report! We have finalized the reporting process and will notify our moderation team shortly.\n"
+            reply += "For now, please indicate whether or not you would like the reported user blocked. \n"
+            reply += "- Blocked users will not be notified that they are blocked and you will no longer receive any communications from them.\n\n"
+            reply += "Please reply with `YES` or `NO` below:\n"
+            
+            # Update parameter to new type to continue
+            params["completed"]
+            params["req_to_block"] = -1
+
+        elif req_to_block == -1:
+            # Update req_to_block param based on user_message
+            if user_message == "yes":
+                params["req_to_block"] = True
+            elif user_message == "no":
+                params["req_to_block"] = False
+            else:
+                return "Please reply with `YES` or `NO` below:"
+
+            reply = "Thank you for your time, have a great rest of your day!"
+            params["completed"] = True
+        
+        else:
+            # Should never get here
+            reply = "Fraud Report Complete."
+            params["completed"] = True
+
+        return reply
 
