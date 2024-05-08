@@ -146,10 +146,10 @@ class Report:
             elif report_type == 'Impersonation':
                 pass
             elif report_type == 'Violence and/or Harmful Behavior':
-                pass
+                reply = await self.violence_behavior_flow(user_message, params)
             else:
-                pass
-            
+                reply = await self.uncomfortable_other_flow(user_message, params)
+
             if params['completed']:
                 self.state = State.REPORT_COMPLETE
 
@@ -305,4 +305,172 @@ class Report:
             params["completed"] = True
 
         return reply
+    
+    async def violence_behavior_flow(self, user_message : str, params : dict):
+        """
+        This function handles the Violence and/or Harmful Behavior flow specifically, for better code visibility in the main handler function.
+        """
+        action = params['action']
+        req_to_block = params['req_to_block']
+        params['completed'] = False
 
+        if action is None:
+
+            reply = "Please indicate the number this type of action falls under:\n"
+            reply += "1.) Bullying \n"
+            reply += "2.) Hate speech \n"
+            reply += "3.) Unwanted sexual content \n"
+            reply += "4.) Violence to Others/Self Harm \n"
+            reply += "5.) Other \n"
+            params['action'] = ""
+
+        elif req_to_block is None:
+            
+            temp = re.findall(r'\d+', user_message)
+            option = list(map(int, temp))
+            if len(option) == 0:
+                return 'Sorry, please indicate an option between 1-5. \n'
+            option = option[0]
+
+            if option == 1:
+                params['action'] = 'Bullying'
+            elif option == 2:
+                params['action'] = 'Hate speech'
+            elif option == 3:
+                params['action'] = 'Unwanted sexual content'
+            elif option == 4:
+                params['action'] = 'Violence to Others/Self Harm'
+            elif option == 5:
+                params['action'] = 'Other'
+            else:
+                return 'Sorry, please indicate an option between 1-5. \n'
+           
+            reply = f"Thank you for reporting this message as `{params['action']}`. \n"
+            reply += "Our content moderation team will review the message according to the Community Guidelines and remove the message/account if necessary.\n"
+            reply += "For now, please indicate whether or not you would like the reported user blocked. \n"
+            reply += "- Blocked users will not be notified that they are blocked and you will no longer receive any communications from them.\n\n"
+            reply += "Please reply with `YES` or `NO` below:\n"
+            params['req_to_block'] = -1
+        
+        elif req_to_block == -1:
+
+            # Update req_to_block param based on user_message
+            if user_message == "yes":
+                params["req_to_block"] = True
+            elif user_message == "no":
+                params["req_to_block"] = False
+            else:
+                return "Please reply with `YES` or `NO` below:"
+
+            reply = "Thank you for your time, have a great rest of your day!"
+            params["completed"] = True
+
+        else:
+            # Should never get here
+            reply = "Violence and/or Harmful Behavior Report Complete."
+            params["completed"] = True
+
+        return reply
+    
+    async def uncomfortable_other_flow(self, user_message : str, params : dict):
+        """
+        This function handles the Uncomfortable / Other flow specifically, for better code visibility in the main handler function.
+        """
+        action = params['action']
+        has_shared_logs = params['has_shared_logs']
+        req_to_block = params['req_to_block']
+        params['completed'] = False
+        is_complete = params['completed']
+
+        reply = ""
+
+        if action is None:
+            reply = "Would you like to provide more context for the report? \n"
+            reply = "Reply with more information on the abuse or `N/A`"
+
+            # Update action state to empty string, while waiting for response
+            params['action'] = ""
+
+        elif has_shared_logs is None:
+            
+            params['action'] = user_message
+
+            reply = "Please indicate whether or not you would like to include your chat history in this report.\n"
+            reply += "Please reply with `YES` or `NO` below:"
+
+            # Update parameter to non-None type to continue
+            params["has_shared_logs"] = ""
+
+        elif req_to_block is None:
+            
+            # Update has_shared_logs param based on user_message
+            if user_message == "yes":
+                params["has_shared_logs"] = True
+            elif user_message == "no":
+                params["has_shared_logs"] = False
+            else:
+                return "Please reply with `YES` or `NO` below:"
+            
+            # Initialize an array of DiscordMessages in params
+            params['logs'] = []
+
+            reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
+            reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
+            reply += "When you are done, please enter `Complete` to indicate so."
+
+            # Update parameter to non-None type to continue
+            params['req_to_block'] = ""
+
+        elif params['logs'] is not None and user_message != 'complete' and req_to_block == "":
+
+            # Parse out the three ID strings from the message link
+            m = re.search('/(\d+)/(\d+)/(\d+)', user_message)
+            if not m:
+                return "I'm sorry, I couldn't read that link. Please try again or say `cancel` to cancel."
+            guild = self.client.get_guild(int(m.group(1)))
+            if not guild:
+                return "I cannot accept reports of messages from guilds that I'm not in. Please have the guild owner add me to the guild and try again."
+            channel = guild.get_channel(int(m.group(2)))
+            if not channel:
+                return "It seems this channel was deleted or never existed. Please try again or say `cancel` to cancel."
+
+            # Fetch actual message from channel
+            try:
+                new_message = await channel.fetch_message(int(m.group(3)))
+                params['logs'].append(new_message)
+            except discord.errors.NotFound:
+                return "It seems this message was deleted or never existed. Please try again or say `cancel` to cancel."
+
+            reply = "Received this message:```" + new_message.author.name + ": " + new_message.content + "```\n"
+            reply += "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
+            reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
+            reply += "When you are done, please enter `Complete` to indicate so."
+
+        elif req_to_block == "":
+            reply = "Thank you for filling out this report! We have finalized the reporting process and will notify our moderation team shortly.\n"
+            reply += "For now, please indicate whether or not you would like the reported user blocked. \n"
+            reply += "- Blocked users will not be notified that they are blocked and you will no longer receive any communications from them.\n\n"
+            reply += "Please reply with `YES` or `NO` below:\n"
+            
+            # Update parameter to new type to continue
+            params["completed"]
+            params["req_to_block"] = -1
+
+        elif req_to_block == -1:
+            # Update req_to_block param based on user_message
+            if user_message == "yes":
+                params["req_to_block"] = True
+            elif user_message == "no":
+                params["req_to_block"] = False
+            else:
+                return "Please reply with `YES` or `NO` below:"
+
+            reply = "Thank you for your time, have a great rest of your day!"
+            params["completed"] = True
+        
+        else:
+            # Should never get here
+            reply = "Uncomfortable Content Report Complete."
+            params["completed"] = True
+
+        return reply
