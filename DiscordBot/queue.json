@@ -1,0 +1,92 @@
+{
+    "LOW": [
+        {
+            "user_id": 430869490453184522,
+            "message_id": 1237610718870765588,
+            "classification": "Fraud",
+            "message": {
+                "id": 1237610718870765588,
+                "content": "you should buy bitcoin",
+                "author_id": 430869490453184522,
+                "channel_id": 1211760625307615321
+            },
+            "user_report": null
+        },
+        {
+            "user_id": 249676214724198412,
+            "message_id": 1237611175668224021,
+            "classification": "Fraud",
+            "message": {
+                "id": 1237611175668224021,
+                "content": "you should buy bitcoin 2",
+                "author_id": 249676214724198412,
+                "channel_id": 1211760625307615321
+            },
+            "user_report": null
+        },
+        {
+            "user_id": 249676214724198412,
+            "message_id": 1237611182706135050,
+            "classification": "Fraud",
+            "message": {
+                "id": 1237611182706135050,
+                "content": "you should buy bitcoin 3",
+                "author_id": 249676214724198412,
+                "channel_id": 1211760625307615321
+            },
+            "user_report": null
+        },
+        {
+            "user_id": 249676214724198412,
+            "message_id": 1237615070398255156,
+            "classification": "Fraud",
+            "message": {
+                "id": 1237615070398255156,
+                "content": "i want you to buy bitcoin",
+                "author_id": 249676214724198412,
+                "channel_id": 1211760625307615321
+            },
+            "user_report": null
+        }
+    ],
+    "MEDIUM": [
+        {
+            "user_id": 430869490453184522,
+            "message_id": 1237605623873671270,
+            "classification": "Impersonation",
+            "message": {
+                "id": 1237605623873671270,
+                "content": "Hey, we've never met but I found your profile. I can\u2019t discuss much here, but I have an opportunity that could benefit us both. Let's connect privately.",
+                "author_id": 430869490453184522,
+                "channel_id": 1211760625307615321
+            },
+            "user_report": {
+                "reporter": 430869490453184522,
+                "type": "Fraud",
+                "date": "2024-05-07T20:39:01.574444",
+                "params": {
+                    "action": "Fraud: URL,\n",
+                    "has_leaked_info": true,
+                    "has_shared_logs": false,
+                    "req_to_block": true,
+                    "completed": true,
+                    "logs": []
+                }
+            }
+        }
+    ],
+    "HIGH": [
+        {
+            "user_id": 430869490453184522,
+            "message_id": 1237605623873671270,
+            "classification": "Fraud",
+            "message": {
+                "id": 1237605623873671270,
+                "content": "Hey, we've never met but I found your profile. I can\u2019t discuss much here, but I have an opportunity that could benefit us both. Let's connect privately.",
+                "author_id": 430869490453184522,
+                "channel_id": 1211760625307615321
+            },
+            "user_report": null
+        }
+    ]
+}

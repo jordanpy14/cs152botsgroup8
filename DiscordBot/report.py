@@ -21,7 +21,7 @@ class Report:
         self.state = State.REPORT_START
         self.client = client
         self.message = None             # Store offending message information (poster, content, etc)
-        self.report = {                 # Persist details of the report
+        self.report = {                 # Persist details of the report, anything to be saved goes here, saving is handled by the bot.
             "reporter" : None,
             "type" : None,
             "date" : None,
@@ -51,8 +51,8 @@ class Report:
             
             # Update current state and initialize report
             self.state = State.AWAITING_MESSAGE
-            self.report['reporter'] = message.author
-            self.report['date'] = datetime.datetime.now()
+            self.report['reporter'] = message.author.id
+            self.report['date'] = datetime.datetime.now().isoformat()
 
             return [reply]
         
