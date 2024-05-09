@@ -1,0 +1,14 @@
+[
+    {
+        "user_id": 430869490453184522,
+        "message_id": 1237896531202412554,
+        "classification": "Fraud",
+        "message": {
+            "id": 1237896531202412554,
+            "content": "I want you to buy bitcoin",
+            "author_id": 430869490453184522,
+            "channel_id": 1211760625307615321
+        },
+        "user_report": null
+    }
+]

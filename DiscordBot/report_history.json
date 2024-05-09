@@ -1,66 +1,169 @@
 {
     "430869490453184522": {
-        "1237605623873671270": {
+        "1237896531202412554": {
+            "count": 3,
+            "priority": "LOW",
+            "date": "2024-05-08T15:40:27.411791",
+            "classification": "Fraud",
+            "message": {
+                "id": 1237896531202412554,
+                "content": "I want you to buy bitcoin",
+                "author_id": 430869490453184522,
+                "channel_id": 1211760625307615321
+            },
+            "user_report": [
+                {
+                    "reporter": 430869490453184522,
+                    "type": "Fraud",
+                    "date": "2024-05-08T15:39:22.796017",
+                    "params": {
+                        "action": "Fraud: URL,\n",
+                        "has_leaked_info": true,
+                        "has_shared_logs": false,
+                        "req_to_block": true,
+                        "completed": true,
+                        "logs": []
+                    }
+                },
+                {
+                    "reporter": 430869490453184522,
+                    "type": "Violence and/or Harmful Behavior",
+                    "date": "2024-05-08T15:39:54.774903",
+                    "params": {
+                        "action": "Bullying",
+                        "req_to_block": true,
+                        "completed": true
+                    }
+                }
+            ]
+        },
+        "1237603563178557474": {
             "count": 1,
             "priority": "MEDIUM",
+            "date": "2024-05-08T17:37:36.657490",
             "classification": "Impersonation",
             "message": {
-                "id": 1237605623873671270,
+                "id": 1237603563178557474,
                 "content": "Hey, we've never met but I found your profile. I can\u2019t discuss much here, but I have an opportunity that could benefit us both. Let's connect privately.",
                 "author_id": 430869490453184522,
                 "channel_id": 1211760625307615321
             },
-            "user_report": {
-                "reporter": 430869490453184522,
-                "type": "Fraud",
-                "date": "2024-05-07T20:39:01.574444",
-                "params": {
-                    "action": "Fraud: URL,\n",
-                    "has_leaked_info": true,
-                    "has_shared_logs": false,
-                    "req_to_block": true,
-                    "completed": true,
-                    "logs": []
+            "user_report": [
+                {
+                    "reporter": 430869490453184522,
+                    "type": "Violence and/or Harmful Behavior",
+                    "date": "2024-05-08T17:36:33.239052",
+                    "params": {
+                        "action": "Bullying",
+                        "req_to_block": true,
+                        "completed": true
+                    }
                 }
-            }
+            ]
         },
-        "1237610718870765588": {
+        "1237932447543332915": {
             "count": 1,
-            "priority": "LOW",
-            "classification": "Fraud",
+            "priority": "MEDIUM",
+            "date": "2024-05-08T18:01:36.080869",
+            "classification": "Impersonation",
             "message": {
-                "id": 1237610718870765588,
-                "content": "you should buy bitcoin",
+                "id": 1237932447543332915,
+                "content": "Hey, we've never met but I found your profile. I can\u2019t discuss much here, but I have an opportunity that could benefit us both. Let's connect privately.",
                 "author_id": 430869490453184522,
                 "channel_id": 1211760625307615321
             },
-            "user_report": null
+            "user_report": []
+        },
+        "1237932452564176907": {
+            "count": 1,
+            "priority": "MEDIUM",
+            "date": "2024-05-08T18:01:36.973014",
+            "classification": "Impersonation",
+            "message": {
+                "id": 1237932452564176907,
+                "content": "Hey, we've never met but I found your profile. I can\u2019t discuss much here, but I have an opportunity that could benefit us both. Let's connect privately.",
+                "author_id": 430869490453184522,
+                "channel_id": 1211760625307615321
+            },
+            "user_report": []
+        },
+        "1237932456490041345": {
+            "count": 1,
+            "priority": "MEDIUM",
+            "date": "2024-05-08T18:01:37.881482",
+            "classification": "Impersonation",
+            "message": {
+                "id": 1237932456490041345,
+                "content": "Hey, we've never met but I found your profile. I can\u2019t discuss much here, but I have an opportunity that could benefit us both. Let's connect privately.",
+                "author_id": 430869490453184522,
+                "channel_id": 1211760625307615321
+            },
+            "user_report": []
         }
     },
     "249676214724198412": {
-        "1237611175668224021": {
-            "count": 1,
+        "1237615070398255156": {
+            "count": 4,
             "priority": "LOW",
+            "date": "2024-05-08T20:32:52.578623",
             "classification": "Fraud",
             "message": {
-                "id": 1237611175668224021,
-                "content": "you should buy bitcoin 2",
+                "id": 1237615070398255156,
+                "content": "i want you to buy bitcoin",
                 "author_id": 249676214724198412,
                 "channel_id": 1211760625307615321
             },
-            "user_report": null
-        },
-        "1237611182706135050": {
-            "count": 1,
-            "priority": "LOW",
-            "classification": "Fraud",
-            "message": {
-                "id": 1237611182706135050,
-                "content": "you should buy bitcoin 3",
-                "author_id": 249676214724198412,
-                "channel_id": 1211760625307615321
-            },
-            "user_report": null
+            "user_report": [
+                {
+                    "reporter": 430869490453184522,
+                    "type": "Uncomfortable / Other",
+                    "date": "2024-05-08T19:53:41.568412",
+                    "params": {
+                        "action": "i don't like this",
+                        "has_shared_logs": false,
+                        "req_to_block": true,
+                        "completed": true,
+                        "logs": []
+                    }
+                },
+                {
+                    "reporter": 430869490453184522,
+                    "type": "Solicitation",
+                    "date": "2024-05-08T20:26:27.157175",
+                    "params": {
+                        "action": "Solicitation: asking for money or crypto,\n",
+                        "has_shared_logs": "",
+                        "req_to_block": null,
+                        "completed": true,
+                        "logs": null
+                    }
+                },
+                {
+                    "reporter": 430869490453184522,
+                    "type": "Fraud",
+                    "date": "2024-05-08T20:27:52.344348",
+                    "params": {
+                        "action": "Fraud: URL,\n",
+                        "has_leaked_info": true,
+                        "has_shared_logs": false,
+                        "req_to_block": true,
+                        "completed": true,
+                        "logs": []
+                    }
+                },
+                {
+                    "reporter": 430869490453184522,
+                    "type": "Solicitation",
+                    "date": "2024-05-08T20:32:27.044495",
+                    "params": {
+                        "action": "Solicitation: asking for money or crypto,\n",
+                        "has_shared_logs": true,
+                        "req_to_block": true,
+                        "completed": true,
+                        "logs": []
+                    }
+                }
+            ]
         }
     }
 }
