@@ -1,3 +1,12 @@
+"""
+Team 8
+Colette Do
+Carlo Dino
+Christian Gebhardt
+Euysun Hwang
+Jordan Paredes
+"""
+
 # bot.py
 import discord
 from discord.ext import commands
@@ -368,10 +377,10 @@ class ModBot(discord.Client):
                     self.moderator_state[moderator.id] = ModeratorStep.DEAL_WITH_SEVERITY_RANK
         elif self.moderator_state[moderator.id] == ModeratorStep.FALSE_REPORT:
             if content == "yes":
-                await moderator.send("The report will be closed and the user will be warned. \n Enter 'y' to close report")
+                await moderator.send("The account will be shut down for repeated abuse of report system. \n Enter 'y' to close report")
                 self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
             elif content == "no":
-                await moderator.send("The account will be shut down for repeated abuse of report system. \n Enter 'y' to close report")
+                await moderator.send("The report will be closed and the user will be warned. \n Enter 'y' to close report")
                 self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
             else:
                 await moderator.send("Please respond with `yes` or `no`.")

@@ -1,3 +1,12 @@
+"""
+Team 8
+Colette Do
+Carlo Dino
+Christian Gebhardt
+Euysun Hwang
+Jordan Paredes
+"""
+
 from enum import Enum, auto
 import discord
 import re
