@@ -345,11 +345,11 @@ class ModBot(discord.Client):
             if self.moderator_severity_rank[moderator.id] == 1:
                 if content == "yes":
                     report = self.queue[self.moderator_priority[moderator.id]][self.moderator_priority_choice[moderator.id]]
-                    self.update_false_reports(report['reporter'], report)
                     number_of_false_reports = 0
                     if report['reporter'] in self.false_reports:
                         number_of_false_reports = len(self.false_reports[report['reporter']])
                     await moderator.send(f"Was this a first offense? If so, please respond with `yes` or `no`.\n The number of false reports that user has right now: {number_of_false_reports}")
+                    self.update_false_user_reports(report['reporter'], report)
                     self.moderator_state[moderator.id] = ModeratorStep.FALSE_REPORT
                 elif content == "no":
                     await moderator.send("There will be no system action and the report will be closed.")
