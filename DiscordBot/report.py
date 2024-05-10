@@ -248,10 +248,12 @@ class Report:
             
             # Initialize an array of DiscordMessages in params
             params['logs'] = []
-
-            reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
-            reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
-            reply += "When you are done, please enter `Complete` to indicate so."
+            if params["has_shared_logs"]:
+                reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
+                reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
+                reply += "When you are done, please enter `Complete` to indicate so."
+            else:
+                reply = "Please enter `Complete` to confirm no additional messages."
 
             # Update parameter to non-None type to continue
             params['req_to_block'] = ""
@@ -417,10 +419,12 @@ class Report:
             
             # Initialize an array of DiscordMessages in params
             params['logs'] = []
-
-            reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
-            reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
-            reply += "When you are done, please enter `Complete` to indicate so."
+            if params["has_shared_logs"]:
+                reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
+                reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
+                reply += "When you are done, please enter `Complete` to indicate so."
+            else:
+                reply = "Please enter `Complete` to confirm no additional messages."
 
             # Update parameter to non-None type to continue
             params['req_to_block'] = ""
