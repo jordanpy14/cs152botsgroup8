@@ -12,29 +12,6 @@
             },
             "user_report": {
                 "reporter": 430869490453184522,
-                "type": "Uncomfortable / Other",
-                "date": "2024-05-08T19:53:41.568412",
-                "params": {
-                    "action": "i don't like this",
-                    "has_shared_logs": false,
-                    "req_to_block": true,
-                    "completed": true,
-                    "logs": []
-                }
-            }
-        },
-        {
-            "user_id": 249676214724198412,
-            "message_id": 1237615070398255156,
-            "classification": "Fraud",
-            "message": {
-                "id": 1237615070398255156,
-                "content": "i want you to buy bitcoin",
-                "author_id": 249676214724198412,
-                "channel_id": 1211760625307615321
-            },
-            "user_report": {
-                "reporter": 430869490453184522,
                 "type": "Solicitation",
                 "date": "2024-05-08T20:26:27.157175",
                 "params": {
@@ -120,5 +97,30 @@
             "user_report": null
         }
     ],
-    "HIGH": []
+    "HIGH": [
+        {
+            "user_id": 430869490453184522,
+            "message_id": 1237932447543332915,
+            "classification": "Fraud",
+            "message": {
+                "id": 1237932447543332915,
+                "content": "Hey, we've never met but I found your profile. I can\u2019t discuss much here, but I have an opportunity that could benefit us both. Let's connect privately.",
+                "author_id": 430869490453184522,
+                "channel_id": 1211760625307615321
+            },
+            "user_report": {
+                "reporter": 1123176776034693170,
+                "type": "Fraud",
+                "date": "2024-05-08T20:46:02.014681",
+                "params": {
+                    "action": "Fraud: Crypto,\n",
+                    "has_leaked_info": false,
+                    "has_shared_logs": true,
+                    "req_to_block": false,
+                    "completed": true,
+                    "logs": []
+                }
+            }
+        }
+    ]
 }

@@ -503,6 +503,7 @@ class ModBot(discord.Client):
                     {"role": "system", "content": "If the messsage is not harmful, please classify it as `NONE`"},
                     {"role": "system", "content": "Also give me a priority of LOW, MEDIUM, or HIGH. If you are unsure, please give a priority of LOW."},
                     {"role": "system", "content": "If the messsage is not harmful, please give a priority as `NONE`"},
+                    {"role": "system", "content": "If the message is Fraud and it is asking someone to move to a different platform please give a priority of LOW"},
                     {"role": "system", "content": "Give the answer in the format: `Category: <category>, Priority: <priority>`. For example: `Category: Fraud, Priority: HIGH`."},
                     {"role": "system", "content": "Please classify the following message:"},
                     {"role": "user", "content": "\"\"" + message.content + "\"\""}
@@ -519,8 +520,10 @@ class ModBot(discord.Client):
                         if classification == "NONE" and priority != "NONE":
                             priority = "NONE"
                         if classification != "NONE" and priority == "NONE":
-                            classification = "NONE"  
-                        if classification != "NONE" and priority != "NONE":
+                            classification = "NONE"
+                        if classification == "Uncomfortable":
+                            priority = "MEDIUM"  
+                        if classification != "NONE":
                             self.update_report_history(message.author.id, message.id, classification, priority, message, report)
                             self.update_queue(message.author.id, message.id, classification, priority, message, report)
                         return f"Classification: {classification}, Priority: {priority}" 
