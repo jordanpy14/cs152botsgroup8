@@ -526,7 +526,9 @@ class ModBot(discord.Client):
                             classification = "NONE"
                         if classification == "Uncomfortable":
                             priority = "MEDIUM"  
-                        if classification != "NONE":
+                        if classification != "NONE" or report:
+                            if report:
+                                classification = report['type']
                             self.update_report_history(message.author.id, message.id, classification, priority, message, report)
                             self.update_queue(message.author.id, message.id, classification, priority, message, report)
                         return f"Classification: {classification}, Priority: {priority}" 
