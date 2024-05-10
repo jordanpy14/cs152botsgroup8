@@ -91,11 +91,11 @@ class Report:
                 self.state = State.MESSAGE_IDENTIFIED
 
                 reply = "Thank you for reporting! Please indicate the number of the type of abuse below that this message falls under:\n\n"
-                reply += "1.) Fraud \n"
-                reply += "2.) Solicitation \n"
-                reply += "3.) Impersonation \n"
-                reply += "4.) Violence and/or Harmful Behavior \n"
-                reply += "5.) Just makes me uncomfortable / Other"
+                reply += "**1.) Fraud** \n\n"
+                reply += "**2.) Solicitation** \n\n"
+                reply += "**3.) Impersonation** \n\n"
+                reply += "**4.) Violence and/or Harmful Behavior** \n\n"
+                reply += "**5.) Just makes me uncomfortable / Other** \n"
 
             elif user_message == "no":
                 self.state = State.AWAITING_MESSAGE
@@ -248,6 +248,7 @@ class Report:
             
             # Initialize an array of DiscordMessages in params
             params['logs'] = []
+
             if params["has_shared_logs"]:
                 reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
                 reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
@@ -323,11 +324,11 @@ class Report:
         if action is None:
 
             reply = "Please indicate the number this type of action falls under:\n"
-            reply += "1.) Bullying \n"
-            reply += "2.) Hate speech \n"
-            reply += "3.) Unwanted sexual content \n"
-            reply += "4.) Violence to Others/Self Harm \n"
-            reply += "5.) Other \n"
+            reply += "**1.) Bullying** \n\n"
+            reply += "**2.) Hate speech**\n\n"
+            reply += "**3.) Unwanted sexual content** \n\n"
+            reply += "**4.) Violence to Others/Self Harm**\n\n"
+            reply += "**5.) Other**\n"
             params['action'] = ""
 
         elif req_to_block is None:
@@ -419,6 +420,7 @@ class Report:
             
             # Initialize an array of DiscordMessages in params
             params['logs'] = []
+
             if params["has_shared_logs"]:
                 reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
                 reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
@@ -541,9 +543,12 @@ class Report:
             
             params['logs'] = []
             
-            reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
-            reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
-            reply += "When you are done, please enter `Complete` to indicate so."
+            if params["has_shared_logs"]:
+                reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
+                reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
+                reply += "When you are done, please enter `Complete` to indicate so."
+            else:
+                reply = "Please enter `Complete` to confirm no additional messages."
             
             params['req_to_block'] = ""
         elif params['logs'] is not None and user_message != 'complete' and req_to_block == "":
@@ -659,9 +664,12 @@ class Report:
             
             params['logs'] = []
             
-            reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
-            reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
-            reply += "When you are done, please enter `Complete` to indicate so."
+            if params["has_shared_logs"]:
+                reply = "Please continuously copy paste the link to the messages in your chat history that you want to report.\n"
+                reply += "You can obtain this link by right-clicking the message and clicking `Copy Message Link`.\n"
+                reply += "When you are done, please enter `Complete` to indicate so."
+            else:
+                reply = "Please enter `Complete` to confirm no additional messages."
             
             params['req_to_block'] = ""
         elif params['logs'] is not None and user_message != 'complete' and req_to_block == "":
