@@ -344,7 +344,7 @@ class ModBot(discord.Client):
         elif self.moderator_state[moderator.id] == ModeratorStep.DEAL_WITH_SEVERITY_RANK:
             if self.moderator_severity_rank[moderator.id] == 1:
                 if content == "yes":
-                    report = self.queue[self.moderator_priority[moderator.id]][self.moderator_priority_choice[moderator.id]]
+                    report = self.queue[self.moderator_priority[moderator.id]][self.moderator_priority_choice[moderator.id]]['user_report']
                     number_of_false_reports = 0
                     if report['reporter'] in self.false_reports:
                         number_of_false_reports = len(self.false_reports[report['reporter']])
