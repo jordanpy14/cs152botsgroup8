@@ -83,7 +83,12 @@ class ModBot(discord.Client):
         self.moderator_priority = {}
         self.moderator_priority_choice = {}
         self.moderator_severity_rank = {}
-        
+    
+    """
+    Initialize, save, and load methods for JSON files.
+    """
+
+    ### User Reports ###
     def load_false_user_reports(self):
         try:
             with open("false_user_reports.json", "r") as file:
@@ -104,7 +109,8 @@ class ModBot(discord.Client):
         self.false_reports[user_id]['user_report'].append(user_report)
         self.false_reports[user_id]['count'] += 1
         self.save_false_bot_reports()
-        
+    
+    ### Automated GPT Reports ###
     def load_false_bot_reports(self):
         try:
             with open("false_bot_reports.json", "r") as file:
@@ -112,14 +118,16 @@ class ModBot(discord.Client):
         except FileNotFoundError:
             self.false_bot_reports = []
             self.save_false_bot_reports()
+
     def save_false_bot_reports(self):
         with open("false_bot_reports.json", "w") as file:
             json.dump(self.false_bot_reports, file, indent=4)
+
     def update_false_bot_reports(self, report):
         self.false_bot_reports.append(report)
         self.save_false_bot_reports()
         
-        
+    ### Queue ###
     def load_queue(self):
         try:
             with open("queue.json", "r") as file:
@@ -148,7 +156,8 @@ class ModBot(discord.Client):
         }
         self.queue[priority].append({'user_id': user_id, 'message_id': message_id, 'classification': classification, 'message': message_details, 'user_report': user_report})
         self.save_queue()
-            
+    
+    # Report History
     def load_report_history(self):
         try:
             with open("report_history.json", "r") as file:
@@ -199,6 +208,9 @@ class ModBot(discord.Client):
 
         return report
 
+    """
+    Bot Methods
+    """
     async def on_ready(self):
         print(f'{self.user.name} has connected to Discord! It is these guilds:')
         for guild in self.guilds:
@@ -231,15 +243,20 @@ class ModBot(discord.Client):
         if message.guild:
             await self.handle_channel_message(message)
         else:
+            # Need to transition DM features into main-mod channels.
             await self.handle_dm(message)
 
 
-    def clear_moderator(self,message,  moderator):
+    def clear_moderator(self ,message,  moderator):
+        '''
+        Clear a moderator from the system.
+        '''
         self.moderator_state.pop(moderator.id, None)
         self.moderator_priority_choice.pop(moderator.id, None)
         self.moderator_priority.pop(message.author.id, None)
         self.moderator_severity_rank.pop(message.author.id, None)
         
+    ### Handle DM Flow Method ###
     async def handle_dm(self, message):
         # Handle a help message
         if message.content == Report.HELP_KEYWORD:
@@ -249,13 +266,15 @@ class ModBot(discord.Client):
             await message.channel.send(reply)
             return
         
+        # Message Link received
         print(f"Message received: {message.content}")
-        
+
         user_message = str.lower(str(message.content))
         if user_message.startswith(self.CANCEL_KEYWORD) and message.author.id in self.moderator_state:
             self.clear_moderator(message, message.author)
             await message.author.send("Cancellation confirmed. Moderation session ended.")
         
+        ### Moderator Flow ###
         if message.content.startswith('moderate') or message.author.id in self.moderator_state:
             if message.author.id  in self.moderators:
                 if message.author.id not in self.moderator_state:
@@ -265,6 +284,7 @@ class ModBot(discord.Client):
                 await message.author.send("You do not have permission to perform moderation tasks.")
             return
 
+        ### Reporting Flow ###
         author_id = message.author.id
         responses = []
 
@@ -276,7 +296,7 @@ class ModBot(discord.Client):
         if author_id not in self.reports:
             self.reports[author_id] = Report(self)
 
-        # Let the report class handle this message; forward all the messages it returns to uss
+        # Let the report class handle this message; forward all the messages it returns to us
         responses = await self.reports[author_id].handle_message(message)
         for r in responses:
             if r:
@@ -285,12 +305,13 @@ class ModBot(discord.Client):
                 logger.error("Attempted to send an empty message.")  # Log the error for debugging
                 await message.channel.send("An error occurred, please try again.")  # Send a generic error message to the user
 
-        # If the report is complete or cancelled, remove it from our map
+        # If the report is complete or cancelled, remove it from our map AND add to queue
         if self.reports[author_id].report_complete():
             if not self.reports[author_id].report_cancelled:
                 print("message being sent:", self.reports[author_id].message.content)
                 result = await self.eval_text(self.reports[author_id].message, self.prepare_report_for_json(self.reports[author_id].report))
                 print("result: ", result)
+
                 # way to still add to queue incase gpt fails 
                 # if not result or result == "Error during classification, GPT-3.5 did not return a valid classification and priority." or result == None:
                 #     self.update_queue(author_id, self.reports[author_id].message.id, "NONE", "MEDIUM", self.reports[author_id].message, self.prepare_report_for_json(self.reports[author_id].report))
@@ -301,8 +322,6 @@ class ModBot(discord.Client):
         content = message.content.lower().strip()
         print(f"Current state: {self.moderator_state.get(moderator.id)}")
         print(f"Message content: '{content}'")
-
-
 
         if self.moderator_state.get(moderator.id) == ModeratorStep.NO_STATE :
             print("choose priority, ", content)
@@ -497,9 +516,11 @@ class ModBot(discord.Client):
 
         # Forward the message to the mod channel
         mod_channel = self.mod_channels[message.guild.id]
-        # await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}"')
         classification = await self.eval_text(message)
-        await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}" \n{self.code_format(classification)}')
+
+        if classification:
+            mod_message = ""
+            await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}" \n{self.code_format(classification)}')
 
 
     async def eval_text(self, message, report=None):
@@ -516,7 +537,8 @@ class ModBot(discord.Client):
                     {"role": "system", "content": "Also give me a priority of LOW, MEDIUM, or HIGH. If you are unsure, please give a priority of LOW."},
                     {"role": "system", "content": "If the messsage is not harmful, please give a priority as `NONE`"},
                     {"role": "system", "content": "If the message is Fraud and it is asking someone to move to a different platform please give a priority of LOW"},
-                    {"role": "system", "content": "Give the answer in the format: `Category: <category>, Priority: <priority>`. For example: `Category: Fraud, Priority: HIGH`."},
+                    {"role": "system", "content": "Please only give the answer in the following format: `Category: <category>, Priority: <priority>`. For example: `Category: Fraud, Priority: HIGH`."},
+                    {"role": "system", "content": "All other formats will be invalid and crash, it is imperative that this format is maintained and no other text is included and the spacing is accurate."},
                     {"role": "system", "content": "Please classify the following message:"},
                     {"role": "user", "content": "\"\"" + message.content + "\"\""}
                 ],
@@ -531,21 +553,22 @@ class ModBot(discord.Client):
                     if priority == "LOW" or priority == "MEDIUM" or priority == "HIGH" or priority == "NONE":
                         if classification == "NONE" and priority != "NONE":
                             priority = "NONE"
-                        if classification != "NONE" and priority == "NONE":
+                        elif classification != "NONE" and priority == "NONE":
                             classification = "NONE"
-                        if classification == "Uncomfortable":
+                        elif classification == "Uncomfortable":
                             priority = "MEDIUM"  
-                        if classification != "NONE" or report:
+                        elif classification != "NONE" or report:
                             if report:
                                 classification = report['type']
                             self.update_report_history(message.author.id, message.id, classification, priority, message, report)
                             self.update_queue(message.author.id, message.id, classification, priority, message, report)
                         return f"Classification: {classification}, Priority: {priority}" 
             else:
-                return "Error during classification, GPT-3.5 did not return a valid classification and priority."                 
+                # Error during classficiation, GPT did not return a valid Classification - Priority response.
+                return             
         except Exception as e:
             logger.error(f"Failed to classify message with OpenAI: {str(e)}")
-            return "Error during classification"
+            return 
 
 
     def code_format(self, text):
