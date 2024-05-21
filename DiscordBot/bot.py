@@ -241,10 +241,16 @@ class ModBot(discord.Client):
             return
         # Check if this message was sent in a server ("guild") or if it's a DM
         if message.guild:
-            await self.handle_channel_message(message)
+            if message.channel.name == f'group-{self.group_num}':
+                await self.handle_channel_message(message)
+            elif message.channel.name == f'group-{self.group_num}-mod':
+                await self.handle_mod_channel_message(message)
         else:
             # Need to transition DM features into main-mod channels.
             await self.handle_dm(message)
+
+        if not message.channel.name == f'group-{self.group_num}':
+            return
 
 
     def clear_moderator(self ,message,  moderator):
@@ -255,33 +261,264 @@ class ModBot(discord.Client):
         self.moderator_priority_choice.pop(moderator.id, None)
         self.moderator_priority.pop(message.author.id, None)
         self.moderator_severity_rank.pop(message.author.id, None)
-        
+
+    """
+    Handler Methods
+    """
+
     ### Handle DM Flow Method ###
     async def handle_dm(self, message):
+        """
+        Original functionality of handle_dm was to report and moderate, however this needs to be transitioned
+        to the main chat / mod chats respectively for Milestone 3. This method will let the bot to only handle
+        help messages, and tell the user to write reports / moderate reports on group-8 channels.
+        """
         # Handle a help message
         if message.content == Report.HELP_KEYWORD:
             reply =  "Use the `report` command to begin the reporting process.\n"
             reply += "Use the `cancel` command to cancel the report or moderation process.\n"
-            reply += "Use the `moderate` command if you are a moderator and want to go trhough the messages that were flagged.\n"
+            reply += "Use the `moderate` command if you are a moderator and want to go through the messages that were flagged.\n"
+            reply += "\nYou may initiate a report or moderation session in the main channel / mod channel, respectively."
+            await message.channel.send(reply)
+            return
+              
+
+    async def handle_moderation(self, message, moderator):
+        content = message.content.lower().strip()
+        channel = message.channel
+        print(f"Current state: {self.moderator_state.get(moderator.id)}")
+        print(f"Message content: '{content}'")
+
+        if self.moderator_state.get(moderator.id) == ModeratorStep.NO_STATE:
+            print("choose priority, ", content)
+            # Prompt moderator to choose a priority level
+            await channel.send("Please choose a priority number you want to review: 1) LOW, 2) MEDIUM, 3) HIGH")
+            low_count = len(self.queue['LOW'])
+            mid_count = len(self.queue['MEDIUM'])
+            high_count = len(self.queue['HIGH'])
+            await channel.send(f"Number of reports in each priority level: LOW: {low_count}, MEDIUM: {mid_count}, HIGH: {high_count}")
+            self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_PRIORITY
+            return
+
+        elif self.moderator_state[moderator.id] == ModeratorStep.CHOOSE_PRIORITY:
+            try:
+                print("choose priority: ", content)
+                priority_index = int(content)
+                priorities = {1: 'LOW', 2: 'MEDIUM', 3: 'HIGH'}
+                if priority_index in priorities:
+                    priority = priorities[priority_index]
+                    self.moderator_priority[moderator.id] = priority
+                    await self.list_reports_by_priority(moderator, priority, channel)
+                else:
+                    await channel.send("Invalid priority. Please choose from: 1) LOW, 2) MEDIUM, 3) HIGH")
+            except ValueError:
+                await channel.send("Please enter a number corresponding to the priority: 1, 2, or 3.")
+                self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_PRIORITY
+            return
+        elif self.moderator_state[moderator.id] == ModeratorStep.CHOOSE_REPORT:
+            try:
+                print("choose report: ", content)
+                report_index = int(content)
+                self.moderator_priority_choice[moderator.id] = report_index
+                await self.show_detailed_report(moderator, report_index, channel)
+            except ValueError:
+                await channel.send("Please enter a number corresponding to the report you want to view.")
+                self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_PRIORITY
+            return
+        elif self.moderator_state[moderator.id] == ModeratorStep.RANK_SEVERITY:
+            try:
+                print("rank severity: ", content)
+                severity_index = int(content)
+                self.moderator_severity_rank[moderator.id] = severity_index
+                await self.rank_severity(moderator, severity_index, channel)
+            except ValueError:
+                await channel.send("Please enter a number corresponding to the severity level you want to assign.")
+                self.moderator_state[moderator.id] = ModeratorStep.RANK_SEVERITY
+            return
+        elif self.moderator_state[moderator.id] == ModeratorStep.DEAL_WITH_SEVERITY_RANK:
+            if self.moderator_severity_rank[moderator.id] == 1:
+                if content == "yes":
+                    report = self.queue[self.moderator_priority[moderator.id]][self.moderator_priority_choice[moderator.id]]['user_report']
+                    number_of_false_reports = 0
+                    if report['reporter'] in self.false_reports:
+                        number_of_false_reports = len(self.false_reports[report['reporter']])
+                    await channel.send(f"Was this a first offense? If so, please respond with `yes` or `no`.\n The number of false reports that user has right now: {number_of_false_reports}")
+                    self.update_false_user_reports(report['reporter'], report)
+                    self.moderator_state[moderator.id] = ModeratorStep.FALSE_REPORT
+                elif content == "no":
+                    await channel.send("There will be no system action and the report will be closed.")
+                    self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
+                else:
+                    await channel.send("Please respond with `yes` or `no`.")
+            elif self.moderator_severity_rank[moderator.id] == 4:
+                if content == "yes":
+                    await channel.send("The authorities will be contacted and the user will be kicked, and the report will be sent to law enforcemnt, and message will be deleted.\n Enter 'y' to close report")
+                    self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
+                elif content == "no":
+                    await channel.send("The authorities will not be contacted, but the user will be kicked and message will be deleted.\n Enter 'y' to close report")
+                    self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
+                else:
+                    await channel.send("Please respond with `yes` or `no`.")
+                    self.moderator_state[moderator.id] = ModeratorStep.DEAL_WITH_SEVERITY_RANK
+        elif self.moderator_state[moderator.id] == ModeratorStep.FALSE_REPORT:
+            if content == "yes":
+                await channel.send("The account will be shut down for repeated abuse of report system. \n Enter 'y' to close report")
+                self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
+            elif content == "no":
+                await channel.send("The report will be closed and the user will be warned. \n Enter 'y' to close report")
+                self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
+            else:
+                await channel.send("Please respond with `yes` or `no`.")
+                self.moderator_state[moderator.id] = ModeratorStep.FALSE_REPORT
+        elif self.moderator_state[moderator.id] == ModeratorStep.COMPLETE:
+            self.queue[self.moderator_priority[moderator.id]].pop(self.moderator_priority_choice[moderator.id])
+            self.save_queue()
+            self.clear_moderator(message, moderator)
+            await channel.send("Moderation session ended.")
+            return
+            
+    async def list_reports_by_priority(self, moderator, priority, channel):
+        reports = self.queue[priority]
+        if reports:
+            response = f"Please choose a report index you want to moderate\n"
+            response += f"Reports with priority {priority}:\n"
+            for idx, report in enumerate(reports, 0):
+                response += f"Index: {idx}.\nReport ID: {report['message_id']},\nContent: {report['message']['content']},\nClassification: {report['classification']}\n\n\n"
+            await channel.send(response)
+            self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_REPORT
+        else:
+            await channel.send(f"No reports currently require moderation at the {priority} level. Please choose another priority.")
+            self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_PRIORITY
+            self.moderator_priority.pop(moderator.id)
+
+
+    async def show_detailed_report(self, moderator, index, channel):
+        try:
+            priority = self.moderator_priority[moderator.id]
+            reports = self.queue[priority]
+            report = reports[index]
+            historyReport = self.report_history[str(report['user_id'])][str(report['message_id'])] 
+            userReports = historyReport['user_report']
+            response = f"Please rank the severity of the report: \n"
+            response += f"1) False Report \n"
+            response += f"2) Mild Severity which leads to deleting message and warning offending user \n"
+            response += f"3) Moderate Severity which leads to deleting message and kicking offending user \n"
+            response += f"4) High Severity which leads to deleting message and banning offending user and possible law enforcement\n"
+            response += f"Detail Report:\n"
+            response += f"How many times the message was reported: {historyReport['count']}\n"
+            response += f"Initial Report: {historyReport['date']}\n"
+            response += f"Classification: {historyReport['classification']}\n"
+            response += f"Message Content: {historyReport['message']['content']}\n"
+            
+            for idx, user_report in enumerate(userReports, 0):
+                response += f"User Report {idx}: {user_report}\n"
+                
+            await channel.send(response)
+            self.moderator_state[moderator.id] = ModeratorStep.RANK_SEVERITY
+        except IndexError:
+            await channel.send("Your input was out of range. Please enter a valid report number.")
+            self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_REPORT
+            self.moderator_priority_choice.pop(moderator.id)
+        except Exception as e:
+            await channel.send(f"An error occurred: {str(e)}")
+            logging.error(f"Failed to display detailed report: {str(e)}")
+            self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_REPORT
+            self.moderator_priority_choice.pop(moderator.id)
+            
+    async def rank_severity(self, moderator, severity_index, channel):
+        try:
+            current_ticket = self.queue[self.moderator_priority[moderator.id]][self.moderator_priority_choice[moderator.id]]
+            if severity_index in range(1, 5):
+               if severity_index == 1:
+                    if not current_ticket['user_report']:
+                       await channel.send("No user created this ticket. The report will be closed. Ticket will be used to track false reports and train better model\n Enter 'y' to close report")
+                       self.update_false_bot_reports(current_ticket)
+                       self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
+                       return
+                    else:
+                        await channel.send("Was this a false report? If so, please respond with `yes` or `no`.")
+                        self.moderator_state[moderator.id] = ModeratorStep.DEAL_WITH_SEVERITY_RANK
+                        return
+               elif severity_index == 2:
+                   await channel.send("Deleted the message and warned the offending user. \n Enter 'y' to close report")
+                   self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
+                   return
+               elif severity_index == 3:
+                    await channel.send("Deleted the message and kicked the offending user.\n Enter 'y' to close report")
+                    self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
+                    return
+               elif severity_index == 4:
+                    await channel.send("Does this message require legal action as well as contacting authoritie?\n Please respond with `yes` or `no`.")
+                    self.moderator_state[moderator.id] = ModeratorStep.DEAL_WITH_SEVERITY_RANK
+                    return
+            else:
+                await channel.send("Invalid severity level. Please enter a number from 1 to 4.")  
+                self.moderator_state[moderator.id] = ModeratorStep.RANK_SEVERITY
+        except IndexError:
+            await channel.send("Your input was out of range. Please enter a valid severity level.")
+            self.moderator_state[moderator.id] = ModeratorStep.RANK_SEVERITY
+            self.moderator_severity_rank.pop(moderator.id)
+        except Exception as e:
+            await channel.send(f"An error occurred: {str(e)}")
+            logging.error(f"Failed to rank severity: {str(e)}")
+            self.moderator_state[moderator.id] = ModeratorStep.RANK_SEVERITY
+            self.moderator_severity_rank.pop(moderator.id)
+
+        
+    async def handle_mod_channel_message(self, message):
+        # Only handle messages sent in the "group-#" channel
+        if not message.channel.name == f'group-{self.group_num}-mod':
+            return
+        
+        # Handle a help message
+        if message.content == Report.HELP_KEYWORD:
+            reply =  "Use the `report` command to begin the reporting process.\n"
+            reply += "Use the `cancel` command to cancel the report or moderation process.\n"
+            reply += "Use the `moderate` command if you are a moderator and want to go through the messages that were flagged.\n"
+            reply += "\nYou may initiate a report or moderation session in the main channel / mod channel, respectively."
             await message.channel.send(reply)
             return
         
-        # Message Link received
-        print(f"Message received: {message.content}")
-
+        # Cancel an ongoing moderation session
         user_message = str.lower(str(message.content))
         if user_message.startswith(self.CANCEL_KEYWORD) and message.author.id in self.moderator_state:
             self.clear_moderator(message, message.author)
-            await message.author.send("Cancellation confirmed. Moderation session ended.")
-        
-        ### Moderator Flow ###
+            await message.channel.send("Cancellation confirmed. Moderation session ended.")
+            return
+
+        # Handle Moderation Flow
         if message.content.startswith('moderate') or message.author.id in self.moderator_state:
-            if message.author.id  in self.moderators:
+            if message.author.id in self.moderators:
                 if message.author.id not in self.moderator_state:
                     self.moderator_state[message.author.id] = ModeratorStep.NO_STATE
                 await self.handle_moderation(message, message.author)
             else :
-                await message.author.send("You do not have permission to perform moderation tasks.")
+                await message.channel.send("You do not have permission to perform moderation tasks.")
+            return
+
+    async def handle_channel_message(self, message):
+        # Only handle messages sent in the "group-#" channel
+        if not message.channel.name == f'group-{self.group_num}':
+            return
+        
+        # Handle a help message
+        if message.content == Report.HELP_KEYWORD:
+            reply =  "Use the `report` command to begin the reporting process.\n"
+            reply += "Use the `cancel` command to cancel the report or moderation process.\n"
+            reply += "Use the `moderate` command if you are a moderator and want to go through the messages that were flagged.\n"
+            reply += "\nYou may initiate a report or moderation session in the main channel / mod channel, respectively."
+            await message.channel.send(reply)
+            return
+        
+        ### Automatic Reporting Flow ###
+        if message.content != Report.START_KEYWORD and not message.author in self.reports:
+            # We will pre-scan all new messages that aren't bot commands or reporting responses
+            classification = await self.eval_text(message)
+
+            # If we have a classification, notify mod chat (eval_text automatically adds to queue)
+            if classification:
+                msg_type, priority = classification
+                await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}" \n{self.code_format("Classification: " + msg_type + " Priority: " + priority)}')
             return
 
         ### Reporting Flow ###
@@ -308,219 +545,26 @@ class ModBot(discord.Client):
         # If the report is complete or cancelled, remove it from our map AND add to queue
         if self.reports[author_id].report_complete():
             if not self.reports[author_id].report_cancelled:
+                mod_channel = self.mod_channels[message.guild.id]
+
                 print("message being sent:", self.reports[author_id].message.content)
                 result = await self.eval_text(self.reports[author_id].message, self.prepare_report_for_json(self.reports[author_id].report))
-                print("result: ", result)
+                if result:
+                  msg_type, priority = result
+                  print("Class:", msg_type, "Priority:", priority)
 
                 # way to still add to queue incase gpt fails 
                 # if not result or result == "Error during classification, GPT-3.5 did not return a valid classification and priority." or result == None:
                 #     self.update_queue(author_id, self.reports[author_id].message.id, "NONE", "MEDIUM", self.reports[author_id].message, self.prepare_report_for_json(self.reports[author_id].report))
             self.reports.pop(author_id)
-              
-
-    async def handle_moderation(self, message, moderator):
-        content = message.content.lower().strip()
-        print(f"Current state: {self.moderator_state.get(moderator.id)}")
-        print(f"Message content: '{content}'")
-
-        if self.moderator_state.get(moderator.id) == ModeratorStep.NO_STATE :
-            print("choose priority, ", content)
-            # Prompt moderator to choose a priority level
-            await moderator.send("Please choose a priority number you want to review: 1) LOW, 2) MEDIUM, 3) HIGH")
-            low_count = len(self.queue['LOW'])
-            mid_count = len(self.queue['MEDIUM'])
-            high_count = len(self.queue['HIGH'])
-            await moderator.send(f"Number of reports in each priority level: LOW: {low_count}, MEDIUM: {mid_count}, HIGH: {high_count}")
-            self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_PRIORITY
-            return
-
-        elif self.moderator_state[moderator.id] == ModeratorStep.CHOOSE_PRIORITY:
-            try:
-                print("choose priority: ", content)
-                priority_index = int(content)
-                priorities = {1: 'LOW', 2: 'MEDIUM', 3: 'HIGH'}
-                if priority_index in priorities:
-                    priority = priorities[priority_index]
-                    self.moderator_priority[moderator.id] = priority
-                    await self.list_reports_by_priority(moderator, priority)
-                else:
-                    await moderator.send("Invalid priority. Please choose from: 1) LOW, 2) MEDIUM, 3) HIGH")
-            except ValueError:
-                await moderator.send("Please enter a number corresponding to the priority: 1, 2, or 3.")
-                self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_PRIORITY
-            return
-        elif self.moderator_state[moderator.id] == ModeratorStep.CHOOSE_REPORT:
-            try:
-                print("choose report: ", content)
-                report_index = int(content)
-                self.moderator_priority_choice[moderator.id] = report_index
-                await self.show_detailed_report(moderator, report_index)
-            except ValueError:
-                await moderator.send("Please enter a number corresponding to the report you want to view.")
-                self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_PRIORITY
-            return
-        elif self.moderator_state[moderator.id] == ModeratorStep.RANK_SEVERITY:
-            try:
-                print("rank severity: ", content)
-                severity_index = int(content)
-                self.moderator_severity_rank[moderator.id] = severity_index
-                await self.rank_severity(moderator, severity_index)
-            except ValueError:
-                await moderator.send("Please enter a number corresponding to the severity level you want to assign.")
-                self.moderator_state[moderator.id] = ModeratorStep.RANK_SEVERITY
-            return
-        elif self.moderator_state[moderator.id] == ModeratorStep.DEAL_WITH_SEVERITY_RANK:
-            if self.moderator_severity_rank[moderator.id] == 1:
-                if content == "yes":
-                    report = self.queue[self.moderator_priority[moderator.id]][self.moderator_priority_choice[moderator.id]]['user_report']
-                    number_of_false_reports = 0
-                    if report['reporter'] in self.false_reports:
-                        number_of_false_reports = len(self.false_reports[report['reporter']])
-                    await moderator.send(f"Was this a first offense? If so, please respond with `yes` or `no`.\n The number of false reports that user has right now: {number_of_false_reports}")
-                    self.update_false_user_reports(report['reporter'], report)
-                    self.moderator_state[moderator.id] = ModeratorStep.FALSE_REPORT
-                elif content == "no":
-                    await moderator.send("There will be no system action and the report will be closed.")
-                    self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
-                else:
-                    await moderator.send("Please respond with `yes` or `no`.")
-            elif self.moderator_severity_rank[moderator.id] == 4:
-                if content == "yes":
-                    await moderator.send("The authorities will be contacted and the user will be kicked, and the report will be sent to law enforcemnt, and message will be deleted.\n Enter 'y' to close report")
-                    self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
-                elif content == "no":
-                    await moderator.send("The authorities will not be contacted, but the user will be kicked and message will be deleted.\n Enter 'y' to close report")
-                    self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
-                else:
-                    await moderator.send("Please respond with `yes` or `no`.")
-                    self.moderator_state[moderator.id] = ModeratorStep.DEAL_WITH_SEVERITY_RANK
-        elif self.moderator_state[moderator.id] == ModeratorStep.FALSE_REPORT:
-            if content == "yes":
-                await moderator.send("The account will be shut down for repeated abuse of report system. \n Enter 'y' to close report")
-                self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
-            elif content == "no":
-                await moderator.send("The report will be closed and the user will be warned. \n Enter 'y' to close report")
-                self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
-            else:
-                await moderator.send("Please respond with `yes` or `no`.")
-                self.moderator_state[moderator.id] = ModeratorStep.FALSE_REPORT
-        elif self.moderator_state[moderator.id] == ModeratorStep.COMPLETE:
-            self.queue[self.moderator_priority[moderator.id]].pop(self.moderator_priority_choice[moderator.id])
-            self.save_queue()
-            self.clear_moderator(message, moderator)
-            await moderator.send("Moderation session ended.")
-            return
-            
-    async def list_reports_by_priority(self, moderator, priority):
-        reports = self.queue[priority]
-        if reports:
-            response = f"Please choose a report index you want to moderate\n"
-            response += f"Reports with priority {priority}:\n"
-            for idx, report in enumerate(reports, 0):
-                response += f"Index: {idx}.\nReport ID: {report['message_id']},\nContent: {report['message']['content']},\nClassification: {report['classification']}\n\n\n"
-            await moderator.send(response)
-            self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_REPORT
-        else:
-            await moderator.send(f"No reports currently require moderation at the {priority} level. Please choose another priority.")
-            self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_PRIORITY
-            self.moderator_priority.pop(moderator.id)
-
-
-    async def show_detailed_report(self, moderator, index):
-        try:
-            priority = self.moderator_priority[moderator.id]
-            reports = self.queue[priority]
-            report = reports[index]
-            historyReport = self.report_history[str(report['user_id'])][str(report['message_id'])] 
-            userReports = historyReport['user_report']
-            response = f"Please rank the severity of the report: \n"
-            response += f"1) False Report \n"
-            response += f"2) Mild Severity which leads to deleting message and warning offending user \n"
-            response += f"3) Moderate Severity which leads to deleting message and kicking offending user \n"
-            response += f"4) High Severity which leads to deleting message and banning offending user and possible law enforcement\n"
-            response += f"Detail Report:\n"
-            response += f"How many times the message was reported: {historyReport['count']}\n"
-            response += f"Initial Report: {historyReport['date']}\n"
-            response += f"Classification: {historyReport['classification']}\n"
-            response += f"Message Content: {historyReport['message']['content']}\n"
-            
-            for idx, user_report in enumerate(userReports, 0):
-                response += f"User Report {idx}: {user_report}\n"
-                
-            await moderator.send(response)
-            self.moderator_state[moderator.id] = ModeratorStep.RANK_SEVERITY
-        except IndexError:
-            await moderator.send("Your input was out of range. Please enter a valid report number.")
-            self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_REPORT
-            self.moderator_priority_choice.pop(moderator.id)
-        except Exception as e:
-            await moderator.send(f"An error occurred: {str(e)}")
-            logging.error(f"Failed to display detailed report: {str(e)}")
-            self.moderator_state[moderator.id] = ModeratorStep.CHOOSE_REPORT
-            self.moderator_priority_choice.pop(moderator.id)
-            
-    async def rank_severity(self, moderator, severity_index):
-        try:
-            current_ticket = self.queue[self.moderator_priority[moderator.id]][self.moderator_priority_choice[moderator.id]]
-            if severity_index in range(1, 5):
-               if severity_index == 1:
-                    if not current_ticket['user_report']:
-                       await moderator.send("No user created this ticket. The report will be closed. Ticket will be used to track false reports and train better model\n Enter 'y' to close report")
-                       self.update_false_bot_reports(current_ticket)
-                       self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
-                       return
-                    else:
-                        await moderator.send("Was this a false report? If so, please respond with `yes` or `no`.")
-                        self.moderator_state[moderator.id] = ModeratorStep.DEAL_WITH_SEVERITY_RANK
-                        return
-               elif severity_index == 2:
-                   await moderator.send("Deleted the message and warned the offending user. \n Enter 'y' to close report")
-                   self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
-                   return
-               elif severity_index == 3:
-                    await moderator.send("Deleted the message and kicked the offending user.\n Enter 'y' to close report")
-                    self.moderator_state[moderator.id] = ModeratorStep.COMPLETE
-                    return
-               elif severity_index == 4:
-                    await moderator.send("Does this message require legal action as well as contacting authoritie?\n Please respond with `yes` or `no`.")
-                    self.moderator_state[moderator.id] = ModeratorStep.DEAL_WITH_SEVERITY_RANK
-                    return
-            else:
-                await moderator.send("Invalid severity level. Please enter a number from 1 to 4.")  
-                self.moderator_state[moderator.id] = ModeratorStep.RANK_SEVERITY
-        except IndexError:
-            await moderator.send("Your input was out of range. Please enter a valid severity level.")
-            self.moderator_state[moderator.id] = ModeratorStep.RANK_SEVERITY
-            self.moderator_severity_rank.pop(moderator.id)
-        except Exception as e:
-            await moderator.send(f"An error occurred: {str(e)}")
-            logging.error(f"Failed to rank severity: {str(e)}")
-            self.moderator_state[moderator.id] = ModeratorStep.RANK_SEVERITY
-            self.moderator_severity_rank.pop(moderator.id)
-
-        
-    async def handle_mod_channel_message(self, message):
-        # Only handle messages sent in the "group-#" channel
-        if not message.channel.name == f'group-{self.group_num}-mod':
-            return
-        
-        author_id = message.author.id
-        if author_id in self.moderation_actions or message.content.startswith(Report.MOD_KEYWORD):
-            await self.handle_mod_flow(message)
-            return
-
-    async def handle_channel_message(self, message):
-        # Only handle messages sent in the "group-#" channel
-        if not message.channel.name == f'group-{self.group_num}':
-            return
 
         # Forward the message to the mod channel
-        mod_channel = self.mod_channels[message.guild.id]
+        
         classification = await self.eval_text(message)
 
         if classification:
-            mod_message = ""
-            await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}" \n{self.code_format(classification)}')
+            msg_type, priority = classification
+            await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}" \n{self.code_format("Classification: " + msg_type + " Priority: " + priority)}')
 
 
     async def eval_text(self, message, report=None):
@@ -562,7 +606,8 @@ class ModBot(discord.Client):
                                 classification = report['type']
                             self.update_report_history(message.author.id, message.id, classification, priority, message, report)
                             self.update_queue(message.author.id, message.id, classification, priority, message, report)
-                        return f"Classification: {classification}, Priority: {priority}" 
+                        #return f"Classification: {classification}, Priority: {priority}" 
+                        return (classification, priority)
             else:
                 # Error during classficiation, GPT did not return a valid Classification - Priority response.
                 return             
