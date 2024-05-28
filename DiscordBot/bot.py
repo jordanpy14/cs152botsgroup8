@@ -21,8 +21,10 @@ from openai import OpenAI
 from collections import defaultdict
 from enum import Enum, auto
 import datetime
+import json
 
 
+    
 
 # Set up logging to the console
 logger = logging.getLogger('discord')
@@ -83,10 +85,18 @@ class ModBot(discord.Client):
         self.moderator_priority = {}
         self.moderator_priority_choice = {}
         self.moderator_severity_rank = {}
+        with open('dataset/scam_links.json', 'r') as file:
+            scam_links = json.load(file)
+            self.scam_links = scam_links['links']
     
     """
     Initialize, save, and load methods for JSON files.
     """
+    def check_links(self, message):
+        for link in self.scam_links:
+            if link['url'] in message:
+                return True
+        return False
 
     ### User Reports ###
     def load_false_user_reports(self):
@@ -154,7 +164,7 @@ class ModBot(discord.Client):
             'author_id': message.author.id,
             'channel_id': message.channel.id
         }
-        self.queue[priority].append({'user_id': user_id, 'message_id': message_id, 'classification': classification, 'message': message_details, 'user_report': user_report})
+        self.queue[priority].append({'user_id': user_id, 'message_id': message_id, 'classification': classification, 'message': message_details, 'user_report': user_report, 'contains_harmful_link': self.check_links(message.content)})
         self.save_queue()
     
     # Report History
@@ -194,6 +204,7 @@ class ModBot(discord.Client):
         self.report_history[user_id][message_id]['priority'] = priority
         self.report_history[user_id][message_id]['classification'] = classification
         self.report_history[user_id][message_id]['message'] = message_details
+        self.report_history[user_id][message_id]['contains_harmful_link'] = self.check_links(message.content)
         if 'user_report' not in self.report_history[user_id][message_id] or not self.report_history[user_id][message_id]['user_report']:
             self.report_history[user_id][message_id]['user_report'] = []
             
