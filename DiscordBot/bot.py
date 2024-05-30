@@ -529,6 +529,7 @@ class ModBot(discord.Client):
             # If we have a classification, notify mod chat (eval_text automatically adds to queue)
             if classification:
                 msg_type, priority = classification
+                mod_channel = self.mod_channels[message.guild.id]
                 await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}" \n{self.code_format("Classification: " + msg_type + " Priority: " + priority)}')
             return
 
