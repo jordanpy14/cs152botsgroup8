@@ -522,9 +522,14 @@ class ModBot(discord.Client):
             return
         
         ### Automatic Reporting Flow ###
-        if message.content != Report.START_KEYWORD and not message.author in self.reports:
+        if message.content != Report.START_KEYWORD and not (message.author.id in self.reports):
+            print('\nat automatic flow\n')
+
             # We will pre-scan all new messages that aren't bot commands or reporting responses
             classification = await self.eval_text(message)
+
+            # Define mod channel
+            mod_channel = self.mod_channels[message.guild.id]
 
             # If we have a classification, notify mod chat (eval_text automatically adds to queue)
             if classification:
@@ -534,21 +539,27 @@ class ModBot(discord.Client):
             return
 
         ### Reporting Flow ###
+        print('\nat reporting flow\n')
         author_id = message.author.id
         responses = []
+        print(self.reports)
 
         # Only respond to messages if they're part of a reporting flow
-        if author_id not in self.reports and not message.content.startswith(Report.START_KEYWORD):
+        if not (author_id in self.reports) and not message.content.startswith(Report.START_KEYWORD):
             return
 
         # If we don't currently have an active report for this user, add one
-        if author_id not in self.reports:
+        if not author_id in self.reports:
+            print(f'opened report flow for {author_id}')
             self.reports[author_id] = Report(self)
+            print(self.reports)
 
         # Let the report class handle this message; forward all the messages it returns to us
+        print('waiting for Report class response')
         responses = await self.reports[author_id].handle_message(message)
         for r in responses:
             if r:
+                print('sending msg')
                 await message.channel.send(r)
             else:
                 logger.error("Attempted to send an empty message.")  # Log the error for debugging
@@ -566,17 +577,10 @@ class ModBot(discord.Client):
                   print("Class:", msg_type, "Priority:", priority)
 
                 # way to still add to queue incase gpt fails 
-                # if not result or result == "Error during classification, GPT-3.5 did not return a valid classification and priority." or result == None:
-                #     self.update_queue(author_id, self.reports[author_id].message.id, "NONE", "MEDIUM", self.reports[author_id].message, self.prepare_report_for_json(self.reports[author_id].report))
+                if not result or result == "Error during classification, GPT-3.5 did not return a valid classification and priority." or result == None:
+                    self.update_queue(author_id, self.reports[author_id].message.id, "NONE", "MEDIUM", self.reports[author_id].message, self.prepare_report_for_json(self.reports[author_id].report))
+                    await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}" \n{self.code_format("Classification: " + msg_type + " Priority: " + priority)}')
             self.reports.pop(author_id)
-
-        # Forward the message to the mod channel
-        
-        classification = await self.eval_text(message)
-
-        if classification:
-            msg_type, priority = classification
-            await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}" \n{self.code_format("Classification: " + msg_type + " Priority: " + priority)}')
 
 
     async def eval_text(self, message, report=None):
@@ -616,8 +620,11 @@ class ModBot(discord.Client):
                         elif classification != "NONE" or report:
                             if report:
                                 classification = report['type']
+
+                            # Update the queue and report history
                             self.update_report_history(message.author.id, message.id, classification, priority, message, report)
                             self.update_queue(message.author.id, message.id, classification, priority, message, report)
+
                         #return f"Classification: {classification}, Priority: {priority}" 
                         return (classification, priority)
             else:
